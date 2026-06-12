@@ -3,41 +3,42 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Lock, ShieldCheck, TerminalSquare } from "lucide-react";
+import { TerminalSquare, Settings, LogOut } from "lucide-react";
 import NotFound from "@/pages/not-found";
 
-import { useAuth } from "@/hooks/use-auth";
-import { PasswordGate } from "@/components/auth/PasswordGate";
+import { useSiteAuth } from "@/hooks/use-site-auth";
+import { SiteGate } from "@/components/auth/SiteGate";
 import { SplashBanners } from "@/pages/SplashBanners";
 import { LiveAssets } from "@/pages/LiveAssets";
 import { StoreAssets } from "@/pages/StoreAssets";
 import { Playlists } from "@/pages/Playlists";
+import { AdminPage } from "@/pages/AdminPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000,
-    },
+    queries: { refetchOnWindowFocus: false, staleTime: 5 * 60 * 1000 },
   },
 });
 
-function AppLayout() {
-  const [activeTab, setActiveTab] = useState<"splash" | "live" | "store" | "playlists">("splash");
-  const { isUnlocked, unlock } = useAuth();
+type Tab = "splash" | "live" | "store" | "playlists";
+
+function AppLayout({ onLogout }: { onLogout: () => void }) {
+  const [activeTab, setActiveTab] = useState<Tab>("splash");
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  if (showAdmin) {
+    return <AdminPage onBack={() => setShowAdmin(false)} />;
+  }
 
   return (
     <div className="min-h-[100dvh] w-full bg-background text-foreground relative overflow-hidden flex flex-col">
-      {/* Global scanline effect */}
       <div className="scanline-overlay pointer-events-none" />
 
-      {/* Header / Nav */}
       <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between py-4 gap-4">
-            
-            {/* Logo */}
+
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-primary flex items-center justify-center animate-pulse shadow-[0_0_15px_hsl(var(--primary)_/_0.5)]">
                 <TerminalSquare className="w-6 h-6 text-primary-foreground" />
@@ -50,110 +51,87 @@ function AppLayout() {
               </div>
             </div>
 
-            {/* Navigation Tabs */}
             <nav className="flex items-center gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
-              <NavTab 
-                label="Splash Banners" 
-                isActive={activeTab === "splash"} 
-                onClick={() => setActiveTab("splash")} 
-              />
-              <NavTab 
-                label="Live Assets" 
-                isActive={activeTab === "live"} 
-                onClick={() => setActiveTab("live")} 
-                isProtected 
-                isUnlocked={isUnlocked}
-              />
-              <NavTab 
-                label="Store Assets" 
-                isActive={activeTab === "store"} 
-                onClick={() => setActiveTab("store")} 
-                isProtected 
-                isUnlocked={isUnlocked}
-              />
-              <NavTab 
-                label="FF Playlists" 
-                isActive={activeTab === "playlists"} 
-                onClick={() => setActiveTab("playlists")} 
-              />
+              {(["splash", "live", "store", "playlists"] as Tab[]).map((tab) => {
+                const labels: Record<Tab, string> = {
+                  splash: "Splash Banners",
+                  live: "Live Assets",
+                  store: "Store Assets",
+                  playlists: "FF Playlists",
+                };
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`relative px-4 py-2 font-display uppercase tracking-widest text-sm transition-all duration-300 whitespace-nowrap border-b-2 ${
+                      activeTab === tab
+                        ? "text-primary bg-primary/10 border-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5 border-transparent"
+                    }`}
+                  >
+                    {labels[tab]}
+                  </button>
+                );
+              })}
             </nav>
+
+            <div className="flex items-center gap-2 ml-auto md:ml-0">
+              <button
+                onClick={() => setShowAdmin(true)}
+                title="Admin Panel"
+                className="w-8 h-8 flex items-center justify-center border border-border text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onLogout}
+                title="Logout"
+                className="w-8 h-8 flex items-center justify-center border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="flex-grow container mx-auto px-4 py-8 relative z-10">
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {activeTab === "splash" && <SplashBanners />}
-          
-          {activeTab === "live" && (
-            <PasswordGate isUnlocked={isUnlocked} onUnlock={unlock}>
-              <LiveAssets />
-            </PasswordGate>
-          )}
-          
-          {activeTab === "store" && (
-            <PasswordGate isUnlocked={isUnlocked} onUnlock={unlock}>
-              <StoreAssets />
-            </PasswordGate>
-          )}
-          
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" key={activeTab}>
+          {activeTab === "splash"    && <SplashBanners />}
+          {activeTab === "live"      && <LiveAssets />}
+          {activeTab === "store"     && <StoreAssets />}
           {activeTab === "playlists" && <Playlists />}
         </div>
       </main>
-      
-      {/* Footer */}
+
       <footer className="border-t border-border bg-card/50 py-4 mt-auto relative z-10">
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between text-xs font-mono text-muted-foreground">
           <p>SYSTEM ONLINE. SECURE CONNECTION ESTABLISHED.</p>
-          <p className="opacity-50">V 2.4.1 // GARENA FREE FIRE // RESTRICTED ACCESS</p>
+          <p className="opacity-50">V 1.01 // @LEAKS OF FF // RESTRICTED ACCESS</p>
         </div>
       </footer>
     </div>
   );
 }
 
-function NavTab({ 
-  label, 
-  isActive, 
-  onClick, 
-  isProtected = false,
-  isUnlocked = false
-}: { 
-  label: string; 
-  isActive: boolean; 
-  onClick: () => void;
-  isProtected?: boolean;
-  isUnlocked?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative px-4 py-2 font-display uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 whitespace-nowrap
-        ${isActive 
-          ? "text-primary bg-primary/10 border-b-2 border-primary" 
-          : "text-muted-foreground hover:text-foreground hover:bg-white/5 border-b-2 border-transparent"
-        }
-      `}
-    >
-      {label}
-      {isProtected && (
-        <span className="inline-flex">
-          {isUnlocked ? (
-            <ShieldCheck className="w-3 h-3 text-secondary opacity-70" />
-          ) : (
-            <Lock className="w-3 h-3 text-destructive opacity-70" />
-          )}
-        </span>
-      )}
-    </button>
-  );
-}
+function AuthenticatedApp() {
+  const { authenticated, loading, verify, logout } = useSiteAuth();
 
-function Router() {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="font-mono text-primary animate-pulse tracking-widest uppercase">Initializing...</div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <SiteGate onVerify={verify} />;
+  }
+
   return (
     <Switch>
-      <Route path="/" component={AppLayout} />
+      <Route path="/" component={() => <AppLayout onLogout={logout} />} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -164,7 +142,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <AuthenticatedApp />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

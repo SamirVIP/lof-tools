@@ -4,6 +4,7 @@ import { Copy, Download, AlertCircle, Filter, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const REGIONS = ["SG", "BD", "IND", "CIS", "EU", "NA", "PK", "ID", "TH", "MEA", "BR", "LATAM", "VN", "TW"];
 
@@ -25,14 +26,12 @@ const REGION_FILTERS: Record<string, string[]> = {
   TH:    ["TabTH", "1400x700", ...SHARED_256],
 };
 
-function extractUrlsFromGroups(groups: Record<string, string[]>): string[] {
+function extractUrls(groups: Record<string, unknown>): string[] {
   const urls: string[] = [];
-  for (const arr of Object.values(groups)) {
-    if (Array.isArray(arr)) {
-      for (const item of arr) {
-        if (typeof item === "string" && item.startsWith("http")) {
-          urls.push(item);
-        }
+  for (const val of Object.values(groups)) {
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        if (typeof item === "string" && item.startsWith("http")) urls.push(item);
       }
     }
   }
@@ -40,18 +39,15 @@ function extractUrlsFromGroups(groups: Record<string, string[]>): string[] {
 }
 
 function getFilename(url: string): string {
-  try {
-    const parts = new URL(url).pathname.split("/");
-    return parts[parts.length - 1] || url;
-  } catch {
-    return url.split("/").pop() || url;
-  }
+  try { return new URL(url).pathname.split("/").pop() || url; }
+  catch { return url.split("/").pop() || url; }
 }
 
 export function LiveAssets() {
   const [region, setRegion] = useState(REGIONS[0]);
-  const [activeFilter, setActiveFilter] = useState<string>("All");
-  const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [searchRaw, setSearchRaw] = useState("");
+  const search = useDebounce(searchRaw, 280);
   const { toast } = useToast();
 
   const { data, isLoading, isError, error } = useQuery({
@@ -66,31 +62,28 @@ export function LiveAssets() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast({
-      title: "URL Copied!",
-      description: "Asset URL copied to clipboard.",
-      className: "neon-border-accent bg-card",
-    });
+    toast({ title: "URL Copied!", description: "Asset URL copied to clipboard.", className: "neon-border-accent bg-card" });
   };
 
   const handleRegionChange = (r: string) => {
     setRegion(r);
     setActiveFilter("All");
-    setSearch("");
+    setSearchRaw("");
   };
 
+  const allUrls = useMemo(() => data?.groups ? extractUrls(data.groups) : [], [data]);
+
   const assets = useMemo(() => {
-    if (!data?.groups) return [];
-    let urls = extractUrlsFromGroups(data.groups);
+    let urls = allUrls;
     if (activeFilter !== "All") {
-      urls = urls.filter((url) => url.toLowerCase().includes(activeFilter.toLowerCase()));
+      urls = urls.filter((u) => u.toLowerCase().includes(activeFilter.toLowerCase()));
     }
     if (search.trim()) {
-      const q = search.toLowerCase();
-      urls = urls.filter((url) => getFilename(url).toLowerCase().includes(q));
+      const q = search.trim().toLowerCase();
+      urls = urls.filter((u) => getFilename(u).toLowerCase().includes(q) || u.toLowerCase().includes(q));
     }
     return urls;
-  }, [data, activeFilter, search]);
+  }, [allUrls, activeFilter, search]);
 
   const currentFilters = ["All", ...(REGION_FILTERS[region] || [])];
 
@@ -100,27 +93,20 @@ export function LiveAssets() {
         <h2 className="text-xl font-display text-secondary uppercase tracking-widest neon-text-accent">Region Select</h2>
         <div className="flex flex-wrap gap-2">
           {REGIONS.map((r) => (
-            <button
-              key={r}
-              onClick={() => handleRegionChange(r)}
+            <button key={r} onClick={() => handleRegionChange(r)}
               className={`px-4 py-2 font-mono text-sm uppercase transition-all duration-200 border ${
                 region === r
                   ? "bg-secondary text-secondary-foreground border-secondary shadow-[0_0_10px_hsl(var(--secondary)_/_0.3)]"
                   : "bg-card text-muted-foreground border-border hover:border-secondary/50 hover:text-foreground"
               }`}
-            >
-              {r}
-            </button>
+            >{r}</button>
           ))}
         </div>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search by filename..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+          <input type="text" placeholder="Search by filename..."
+            value={searchRaw} onChange={(e) => setSearchRaw(e.target.value)}
             className="w-full bg-card border border-border pl-10 pr-4 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-secondary focus:shadow-[0_0_8px_hsl(var(--secondary)_/_0.3)] transition-all"
           />
         </div>
@@ -129,27 +115,19 @@ export function LiveAssets() {
       <div className="flex items-center gap-3 overflow-x-auto pb-2">
         <Filter className="w-5 h-5 text-muted-foreground shrink-0" />
         <div className="flex gap-2 flex-wrap">
-          {currentFilters.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
+          {currentFilters.map((f) => (
+            <button key={f} onClick={() => setActiveFilter(f)}
               className={`px-3 py-1 font-mono text-xs uppercase rounded-none border transition-colors ${
-                activeFilter === filter
-                  ? "bg-secondary/20 text-secondary border-secondary"
-                  : "bg-transparent text-muted-foreground border-border hover:border-secondary/50"
+                activeFilter === f ? "bg-secondary/20 text-secondary border-secondary" : "bg-transparent text-muted-foreground border-border hover:border-secondary/50"
               }`}
-            >
-              {filter}
-            </button>
+            >{f}</button>
           ))}
         </div>
       </div>
 
       {data && (
         <p className="font-mono text-xs text-muted-foreground">
-          {assets.length} asset{assets.length !== 1 ? "s" : ""} shown
-          {search ? ` matching "${search}"` : ""}
-          &nbsp;&mdash;&nbsp;{data.total_assets ?? 0} total in region
+          {assets.length} asset{assets.length !== 1 ? "s" : ""} shown{search ? ` matching "${search}"` : ""} &mdash; {data.total_assets ?? 0} total in region
         </p>
       )}
 
@@ -166,15 +144,14 @@ export function LiveAssets() {
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          {[1,2,3,4,5,6,7,8].map((i) => (
             <div key={i} className="neon-border-accent bg-card overflow-hidden">
               <Skeleton className="w-full h-32 bg-muted" />
               <div className="p-4 space-y-3">
                 <Skeleton className="h-4 w-full bg-muted" />
                 <Skeleton className="h-4 w-2/3 bg-muted" />
                 <div className="flex gap-2 pt-2">
-                  <Skeleton className="h-9 w-full bg-muted" />
-                  <Skeleton className="h-9 w-12 bg-muted" />
+                  <Skeleton className="h-9 w-full bg-muted" /><Skeleton className="h-9 w-12 bg-muted" />
                 </div>
               </div>
             </div>
@@ -183,48 +160,28 @@ export function LiveAssets() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {assets.map((url, idx) => (
-            <div
-              key={idx}
-              className="group neon-border-accent bg-card overflow-hidden flex flex-col hover:-translate-y-1 transition-transform duration-300"
-            >
+            <div key={idx} className="group neon-border-accent bg-card overflow-hidden flex flex-col hover:-translate-y-1 transition-transform duration-300">
               <div className="relative h-40 overflow-hidden bg-[#0a0a0c] flex items-center justify-center p-3">
-                <img
-                  src={url}
-                  alt="Asset Preview"
-                  className="max-w-full max-h-full object-contain"
-                  loading="lazy"
-                  onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.2"; }}
-                />
+                <img src={url} alt="Asset Preview" className="max-w-full max-h-full object-contain" loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.2"; }} />
               </div>
-
               <div className="p-4 flex flex-col flex-grow border-t border-border group-hover:border-secondary/30 transition-colors">
                 <div className="mb-4 font-mono text-xs text-muted-foreground break-all" title={getFilename(url)}>
-                  <span className="text-secondary/70 mr-2">FILE:</span>
-                  {getFilename(url)}
+                  <span className="text-secondary/70 mr-2">FILE:</span>{getFilename(url)}
                 </div>
-
                 <div className="flex gap-2 mt-auto">
-                  <Button
-                    onClick={() => copyToClipboard(url)}
-                    variant="outline"
-                    className="flex-grow font-mono uppercase tracking-widest border-secondary/50 text-secondary hover:bg-secondary hover:text-secondary-foreground transition-colors"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy
+                  <Button onClick={() => copyToClipboard(url)} variant="outline"
+                    className="flex-grow font-mono uppercase tracking-widest border-secondary/50 text-secondary hover:bg-secondary hover:text-secondary-foreground transition-colors">
+                    <Copy className="w-4 h-4 mr-2" />Copy
                   </Button>
                   <Button variant="outline" size="icon"
-                    className="shrink-0 border-secondary/50 text-secondary hover:bg-secondary hover:text-secondary-foreground"
-                    asChild
-                  >
-                    <a href={url} target="_blank" rel="noopener noreferrer" download>
-                      <Download className="w-4 h-4" />
-                    </a>
+                    className="shrink-0 border-secondary/50 text-secondary hover:bg-secondary hover:text-secondary-foreground" asChild>
+                    <a href={url} target="_blank" rel="noopener noreferrer" download><Download className="w-4 h-4" /></a>
                   </Button>
                 </div>
               </div>
             </div>
           ))}
-
           {assets.length === 0 && !isError && !isLoading && (
             <div className="col-span-full py-16 text-center flex flex-col items-center justify-center gap-4 neon-border-accent bg-card/30">
               <AlertCircle className="w-8 h-8 text-muted-foreground" />
