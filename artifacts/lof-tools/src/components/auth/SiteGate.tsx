@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Lock, Unlock, AlertTriangle, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Lock, Unlock, AlertTriangle, Eye, EyeOff, ShieldCheck, Clock } from "lucide-react";
 
 interface SiteGateProps {
   onVerify: (password: string, rememberMe: boolean) => Promise<boolean>;
+  sessionExpired?: boolean;
 }
 
-export function SiteGate({ onVerify }: SiteGateProps) {
+export function SiteGate({ onVerify, sessionExpired = false }: SiteGateProps) {
   const [password, setPassword]     = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPw, setShowPw]         = useState(false);
@@ -19,21 +20,34 @@ export function SiteGate({ onVerify }: SiteGateProps) {
     setError(false);
     const ok = await onVerify(password, rememberMe);
     setLoading(false);
-    if (!ok) {
-      setError(true);
-      setPassword("");
-    }
+    if (!ok) { setError(true); setPassword(""); }
   };
 
   return (
     <div className="min-h-screen w-full bg-background flex items-center justify-center relative overflow-hidden">
       <div className="scanline-overlay pointer-events-none" />
-
       <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.03)_1px,transparent_1px)] bg-[size:30px_30px]" />
-
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="relative z-10 w-full max-w-md mx-auto px-4">
+      <div className="relative z-10 w-full max-w-md mx-auto px-4 space-y-3">
+
+        {sessionExpired && (
+          <div className="border border-destructive/60 bg-destructive/10 p-4 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-destructive to-transparent" />
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-destructive shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <p className="font-display uppercase tracking-widest text-destructive text-sm font-bold">
+                  Session Expired
+                </p>
+                <p className="font-mono text-xs text-destructive/80 mt-1 leading-relaxed">
+                  Your OTP access has expired. Contact the owner to get a new access code.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="neon-border-primary bg-card/90 backdrop-blur-md p-8 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
           <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
@@ -71,11 +85,8 @@ export function SiteGate({ onVerify }: SiteGateProps) {
                       : "border-border focus:border-primary focus:shadow-[0_0_8px_hsl(var(--primary)_/_0.3)]"
                   }`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <button type="button" onClick={() => setShowPw(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -88,12 +99,10 @@ export function SiteGate({ onVerify }: SiteGateProps) {
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer group">
-              <div
-                onClick={() => setRememberMe(v => !v)}
+              <div onClick={() => setRememberMe(v => !v)}
                 className={`w-4 h-4 border flex items-center justify-center transition-colors cursor-pointer ${
                   rememberMe ? "bg-primary border-primary" : "border-border group-hover:border-primary/50"
-                }`}
-              >
+                }`}>
                 {rememberMe && <div className="w-2 h-2 bg-primary-foreground" />}
               </div>
               <span className="font-mono text-xs text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-widest">
@@ -101,24 +110,16 @@ export function SiteGate({ onVerify }: SiteGateProps) {
               </span>
             </label>
 
-            <button
-              type="submit"
-              disabled={loading || !password.trim()}
-              className="w-full bg-primary text-primary-foreground font-display uppercase tracking-widest py-3 flex items-center justify-center gap-2 hover:bg-primary/90 hover:shadow-[0_0_20px_hsl(var(--primary)_/_0.4)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="animate-pulse font-mono text-sm">VERIFYING...</span>
-              ) : (
-                <>
-                  <Unlock className="w-4 h-4" />
-                  Authenticate
-                </>
-              )}
+            <button type="submit" disabled={loading || !password.trim()}
+              className="w-full bg-primary text-primary-foreground font-display uppercase tracking-widest py-3 flex items-center justify-center gap-2 hover:bg-primary/90 hover:shadow-[0_0_20px_hsl(var(--primary)_/_0.4)] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+              {loading
+                ? <span className="animate-pulse font-mono text-sm">VERIFYING...</span>
+                : <><Unlock className="w-4 h-4" />Authenticate</>}
             </button>
           </form>
         </div>
 
-        <p className="text-center font-mono text-[10px] text-muted-foreground/40 mt-4 tracking-widest uppercase">
+        <p className="text-center font-mono text-[10px] text-muted-foreground/40 mt-2 tracking-widest uppercase">
           V 1.01 // @LEAKS OF FF // RESTRICTED ACCESS
         </p>
       </div>

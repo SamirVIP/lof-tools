@@ -3,7 +3,7 @@ import { db, otpsTable } from "@workspace/db";
 import { eq, gt } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
-const ADMIN_PASSWORD = "2511";
+const ADMIN_PASSWORD = "1125";
 const router = Router();
 
 function generateCode(): string {
@@ -60,8 +60,8 @@ router.post("/auth/verify-otp", async (req, res) => {
   if (!code) { res.json({ valid: false }); return; }
   const rows = await db.select().from(otpsTable)
     .where(eq(otpsTable.code, code));
-  const valid = rows.some(otp => otp.expiresAt > new Date());
-  res.json({ valid });
+  const match = rows.find(otp => otp.expiresAt > new Date());
+  res.json({ valid: !!match, expiresAt: match?.expiresAt ?? null });
 });
 
 export default router;

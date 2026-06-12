@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { TerminalSquare, Settings, LogOut } from "lucide-react";
+import { TerminalSquare, Settings, LogOut, Clock } from "lucide-react";
 import NotFound from "@/pages/not-found";
+import { useToast } from "@/hooks/use-toast";
 
 import { useSiteAuth } from "@/hooks/use-site-auth";
 import { SiteGate } from "@/components/auth/SiteGate";
@@ -20,11 +21,41 @@ const queryClient = new QueryClient({
   },
 });
 
+function formatDuration(ms: number): string {
+  if (ms <= 0) return "0s";
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s} second${s !== 1 ? "s" : ""}`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} minute${m !== 1 ? "s" : ""}`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hour${h !== 1 ? "s" : ""} ${m % 60}m`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d !== 1 ? "s" : ""} ${h % 24}h`;
+}
+
 type Tab = "splash" | "live" | "store" | "playlists";
 
-function AppLayout({ onLogout }: { onLogout: () => void }) {
+function AppLayout({
+  onLogout,
+  otpExpiry,
+}: {
+  onLogout: () => void;
+  otpExpiry: number | null;
+}) {
   const [activeTab, setActiveTab] = useState<Tab>("splash");
   const [showAdmin, setShowAdmin] = useState(false);
+  const [timeLeft, setTimeLeft]   = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!otpExpiry) { setTimeLeft(null); return; }
+    const update = () => {
+      const diff = otpExpiry - Date.now();
+      setTimeLeft(diff > 0 ? formatDuration(diff) : null);
+    };
+    update();
+    const id = setInterval(update, 10_000);
+    return () => clearInterval(id);
+  }, [otpExpiry]);
 
   if (showAdmin) {
     return <AdminPage onBack={() => setShowAdmin(false)} />;
@@ -33,6 +64,19 @@ function AppLayout({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="min-h-[100dvh] w-full bg-background text-foreground relative overflow-hidden flex flex-col">
       <div className="scanline-overlay pointer-events-none" />
+
+      {otpExpiry && timeLeft && (
+        <div className="bg-secondary/10 border-b border-secondary/30 py-2 px-4 relative z-50">
+          <div className="container mx-auto flex items-center gap-3">
+            <Clock className="w-3 h-3 text-secondary shrink-0 animate-pulse" />
+            <p className="font-mono text-xs text-secondary tracking-wide">
+              OTP SESSION &mdash; Access available for:{" "}
+              <span className="font-bold">{timeLeft}</span>
+              {" "}(expires {new Date(otpExpiry).toLocaleString()})
+            </p>
+          </div>
+        </div>
+      )}
 
       <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
@@ -54,21 +98,18 @@ function AppLayout({ onLogout }: { onLogout: () => void }) {
             <nav className="flex items-center gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
               {(["splash", "live", "store", "playlists"] as Tab[]).map((tab) => {
                 const labels: Record<Tab, string> = {
-                  splash: "Splash Banners",
-                  live: "Live Assets",
-                  store: "Store Assets",
+                  splash:    "Splash Banners",
+                  live:      "Live Assets",
+                  store:     "Store Assets",
                   playlists: "FF Playlists",
                 };
                 return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
+                  <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`relative px-4 py-2 font-display uppercase tracking-widest text-sm transition-all duration-300 whitespace-nowrap border-b-2 ${
                       activeTab === tab
                         ? "text-primary bg-primary/10 border-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-white/5 border-transparent"
-                    }`}
-                  >
+                    }`}>
                     {labels[tab]}
                   </button>
                 );
@@ -76,18 +117,12 @@ function AppLayout({ onLogout }: { onLogout: () => void }) {
             </nav>
 
             <div className="flex items-center gap-2 ml-auto md:ml-0">
-              <button
-                onClick={() => setShowAdmin(true)}
-                title="Admin Panel"
-                className="w-8 h-8 flex items-center justify-center border border-border text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
-              >
+              <button onClick={() => setShowAdmin(true)} title="Admin Panel"
+                className="w-8 h-8 flex items-center justify-center border border-border text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
                 <Settings className="w-4 h-4" />
               </button>
-              <button
-                onClick={onLogout}
-                title="Logout"
-                className="w-8 h-8 flex items-center justify-center border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
-              >
+              <button onClick={onLogout} title="Logout"
+                className="w-8 h-8 flex items-center justify-center border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors">
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
@@ -115,7 +150,32 @@ function AppLayout({ onLogout }: { onLogout: () => void }) {
 }
 
 function AuthenticatedApp() {
-  const { authenticated, loading, verify, logout } = useSiteAuth();
+  const { authenticated, loading, verify, logout, sessionExpired, otpExpiry } = useSiteAuth();
+  const { toast } = useToast();
+  const prevOtpExpiry = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (otpExpiry && otpExpiry !== prevOtpExpiry.current) {
+      prevOtpExpiry.current = otpExpiry;
+      const diff = otpExpiry - Date.now();
+      toast({
+        title: "OTP Access Granted",
+        description: `Session active for ${formatDuration(diff)}. Expires: ${new Date(otpExpiry).toLocaleString()}`,
+        duration: 9000,
+        className: "bg-card border-secondary neon-border-accent font-mono",
+      });
+    }
+  }, [otpExpiry, toast]);
+
+  useEffect(() => {
+    if (!authenticated || !otpExpiry) return;
+    const check = () => {
+      if (Date.now() >= otpExpiry) logout(true);
+    };
+    check();
+    const id = setInterval(check, 15_000);
+    return () => clearInterval(id);
+  }, [authenticated, otpExpiry, logout]);
 
   if (loading) {
     return (
@@ -126,12 +186,12 @@ function AuthenticatedApp() {
   }
 
   if (!authenticated) {
-    return <SiteGate onVerify={verify} />;
+    return <SiteGate onVerify={verify} sessionExpired={sessionExpired} />;
   }
 
   return (
     <Switch>
-      <Route path="/" component={() => <AppLayout onLogout={logout} />} />
+      <Route path="/" component={() => <AppLayout onLogout={logout} otpExpiry={otpExpiry} />} />
       <Route component={NotFound} />
     </Switch>
   );
