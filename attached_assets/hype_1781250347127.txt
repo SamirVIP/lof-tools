@@ -1,0 +1,77 @@
+Make Website 
+
+Website Name : LOF Tools
+
+"Tool Section 1 : -Splash Banners"
+
+https://x-ff.vercel.app/event?region={region}&key=SHAHG
+
+Regions - SG, BD, IND, CIS, EU, NA, PK, ID, TH, ME, BR, LATAM, VN, TW
+
+- Show Url As An Image Preview 
+- Title
+- Start Time
+- End Time
+
+
+"Tool Section 2 : Game Live Assets"
+
+https://api-links1.vercel.app/api?server={region}
+
+Regions - SG, BD, IND, CIS, EU, NA, PK, ID, TH, MEA, BR, LATAM, VN, TW
+
+Quick Filter For Banner
+SG - Tab And 1400x700
+IND - Tab And 1400x700
+BD - Tab And 1400x700
+CIS - Tab And 1400x700
+EU - Tab And 1400x700
+NA - Tab And 1400x700
+PK - Tab And 1400x700
+ID - Tab, 1400x700 And Overview
+VN - Tab, And 1400x700
+LATAM - Tab And 1400x700
+BR - Tab And 1400x700
+MEA - Tab, 1400x700 And BG
+TW - 180x80, 1400x700
+TH - TabTH And 1400x700
+IND/SG/BD/EU/CIS/PK/NA/BR/LATAM/TH/MEA/ID/TW - 256x107
+
+
+"Tool Section 3 :- Store Assets"
+
+https://api-links2.vercel.app/api?server={region)
+
+Regions - SG, BD, IND, CIS, EU, NA, PK, ID, TH, MEA, BR, LATAM, VN, TW
+
+Set This Api For "Store" Section
+
+Quick Filter Search For Store
+IND/SG/BD/EU/CIS/PK/NA/BR/LATAM - 252x256, 1500x750 And 512x182
+ID - bgmall, mallsmall and titlemall
+MEA - BG, TT and SM
+TH - LeftBG, LeftTitle And LeftMall
+TW - 252x256 And 512x182
+BR - TabUS
+
+Url Show As an - Image Preview
+File Name No Need to Show
+Request Name Will Show As An - Title
+
+
+"Tool Section 4 : FF Youtube Playlists"
+
+"https://macxffplaylist.vercel.app/api/info"
+
+Show All Information Correctly From The Api
+Show Them As You Want How You Want Show That Api Fetch
+
+
+
+Tool 2 & 3 Will Be Password Protected 
+Set Password : lofassets
+
+
+(Now Make The Website Correctly And Perfectly No Mistake Website Will Be An Gaming Theme Desgine)
+
+And Make It Like That I Can Host it On "vercel.com" Easly
